@@ -339,6 +339,103 @@ def register_api_routes(app: Flask):
         except Exception as e:
             logger.exception("Error getting containers")
             return jsonify({"success": False, "message": str(e)}), 500
+            
+    @app.route('/api/containers/<container_id>', methods=['DELETE'])
+    def delete_container(container_id):
+        """
+        API to delete a container
+        """
+        try:
+            container = Container.query.get(container_id)
+            if not container:
+                return jsonify({
+                    "success": False, 
+                    "message": f"Container with ID {container_id} not found"
+                }), 404
+            
+            # Check if there are items in the container
+            placements = ItemPlacement.query.filter_by(container_id=container_id).all()
+            if placements:
+                return jsonify({
+                    "success": False, 
+                    "message": "Cannot delete container with items. Remove items first or use undock operation."
+                }), 400
+            
+            # Delete container
+            db.session.delete(container)
+            
+            # Add log entry
+            log = Log(
+                action_type="container_deleted",
+                container_id=container_id,
+                details=f"Container {container_id} deleted"
+            )
+            db.session.add(log)
+            
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Container {container_id} deleted successfully"
+            })
+        except Exception as e:
+            logger.exception("Error deleting container")
+            db.session.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
+            
+    @app.route('/api/containers', methods=['POST'])
+    def add_container():
+        """
+        API to add a new container
+        """
+        try:
+            data = request.json
+            
+            if not data or 'containerId' not in data or 'zone' not in data:
+                return jsonify({
+                    "success": False, 
+                    "message": "Container ID and zone are required"
+                }), 400
+            
+            # Check if container already exists
+            existing_container = Container.query.get(data['containerId'])
+            if existing_container:
+                return jsonify({
+                    "success": False, 
+                    "message": f"Container with ID {data['containerId']} already exists"
+                }), 409
+            
+            # Create new container
+            container = Container(
+                id=data['containerId'],
+                zone=data['zone'],
+                width=data.get('width', 100),  # Default dimensions if not provided
+                depth=data.get('depth', 100),
+                height=data.get('height', 100)
+            )
+            
+            # Add to database
+            db.session.add(container)
+            
+            # Add log entry
+            log = Log(
+                action_type="container_added",
+                container_id=container.id,
+                details=f"New container added in zone {container.zone}"
+            )
+            db.session.add(log)
+            
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": "Container added successfully",
+                "container": container.to_dict()
+            })
+        except Exception as e:
+            logger.exception("Error adding container")
+            db.session.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
     
     @app.route('/api/items', methods=['GET'])
     def get_items():
@@ -346,11 +443,36 @@ def register_api_routes(app: Flask):
         API to get all items
         """
         try:
-            items = Item.query.all()
-            return jsonify({
-                "success": True,
-                "items": [item.to_dict() for item in items]
-            })
+            # Check if container_id is provided as a query parameter
+            container_id = request.args.get('container_id')
+            
+            if container_id:
+                # Get items in specific container
+                placements = ItemPlacement.query.filter_by(container_id=container_id).all()
+                item_ids = [placement.item_id for placement in placements]
+                items = Item.query.filter(Item.id.in_(item_ids)).all()
+                
+                # Create dictionary with placement information
+                items_with_placement = []
+                for item in items:
+                    item_dict = item.to_dict()
+                    placement = next(p for p in placements if p.item_id == item.id)
+                    item_dict['placement'] = placement.to_dict()
+                    items_with_placement.append(item_dict)
+                
+                return jsonify({
+                    "success": True,
+                    "items": items_with_placement,
+                    "container_id": container_id,
+                    "total_items": len(items)
+                })
+            else:
+                # Get all items
+                items = Item.query.all()
+                return jsonify({
+                    "success": True,
+                    "items": [item.to_dict() for item in items]
+                })
         except Exception as e:
             logger.exception("Error getting items")
             return jsonify({"success": False, "message": str(e)}), 500

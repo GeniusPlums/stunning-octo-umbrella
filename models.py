@@ -121,6 +121,16 @@ class ItemPlacement(db.Model):
         return {
             "itemId": self.item_id,
             "containerId": self.container_id,
+            "startWidth": self.start_width,
+            "startDepth": self.start_depth,
+            "startHeight": self.start_height,
+            "endWidth": self.end_width,
+            "endDepth": self.end_depth,
+            "endHeight": self.end_height,
+            "rotatedWidthDepth": self.rotated_width_depth,
+            "rotatedWidthHeight": self.rotated_width_height,
+            "rotatedDepthHeight": self.rotated_depth_height,
+            # Keep the original structure as well for backward compatibility
             "position": {
                 "startCoordinates": {
                     "width": self.start_width,

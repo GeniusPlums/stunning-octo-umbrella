@@ -191,6 +191,67 @@
             addContainerModal.show();
         });
         
+        // Save container button
+        document.getElementById('saveContainerBtn').addEventListener('click', function() {
+            // Get form values
+            const containerId = document.getElementById('containerId').value;
+            const containerZone = document.getElementById('containerZone').value;
+            const containerWidth = document.getElementById('containerWidth').value;
+            const containerDepth = document.getElementById('containerDepth').value;
+            const containerHeight = document.getElementById('containerHeight').value;
+            
+            // Validate form
+            if (!containerId || !containerZone) {
+                showAlert('danger', 'Container ID and Zone are required');
+                return;
+            }
+            
+            // Create container object
+            const containerData = {
+                containerId: containerId,
+                zone: containerZone,
+                width: containerWidth ? parseInt(containerWidth) : 100,
+                depth: containerDepth ? parseInt(containerDepth) : 100,
+                height: containerHeight ? parseInt(containerHeight) : 100
+            };
+            
+            // Send API request
+            fetch('/api/containers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(containerData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addContainerModal'));
+                    modal.hide();
+                    
+                    // Clear form
+                    document.getElementById('containerId').value = '';
+                    document.getElementById('containerZone').value = '';
+                    document.getElementById('containerWidth').value = '';
+                    document.getElementById('containerDepth').value = '';
+                    document.getElementById('containerHeight').value = '';
+                    
+                    // Show success message
+                    showAlert('success', data.message);
+                    
+                    // Reload containers
+                    loadContainers();
+                } else {
+                    showAlert('danger', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while saving the container');
+            });
+        });
+        
         // Search functionality
         document.getElementById('containerSearchBtn').addEventListener('click', function() {
             const searchTerm = document.getElementById('containerSearchInput').value.toLowerCase();
@@ -253,64 +314,103 @@
             const gridView = document.getElementById('gridView');
             gridView.innerHTML = '';
             
-            containers.forEach(container => {
-                // Add row to table
-                const row = document.createElement('tr');
-                row.setAttribute('data-container-id', container.containerId);
-                
-                const dimensions = `${container.width} × ${container.depth} × ${container.height} cm`;
-                
-                row.innerHTML = `
-                    <td>${container.containerId}</td>
-                    <td>${container.zone}</td>
-                    <td>${dimensions}</td>
-                    <td>0</td> <!-- Placeholder, should be populated with actual count -->
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
-                                data-container-id="${container.containerId}">
-                            <i data-feather="eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger remove-container-btn"
-                                data-container-id="${container.containerId}">
-                            <i data-feather="trash-2"></i>
-                        </button>
-                    </td>
-                `;
-                tableBody.appendChild(row);
-                
-                // Add card to grid
-                const cardCol = document.createElement('div');
-                cardCol.className = 'col';
-                
-                cardCol.innerHTML = `
-                    <div class="card h-100" data-container-id="${container.containerId}">
-                        <div class="card-body">
-                            <h5 class="card-title">${container.containerId}</h5>
-                            <h6 class="card-subtitle mb-2 text-muted">${container.zone}</h6>
-                            <p class="card-text">
-                                <strong>Dimensions:</strong> ${dimensions}<br>
-                                <strong>Items:</strong> 0
-                            </p>
-                        </div>
-                        <div class="card-footer">
-                            <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
-                                    data-container-id="${container.containerId}">
-                                <i data-feather="eye"></i> Details
-                            </button>
-                        </div>
-                    </div>
-                `;
-                gridView.appendChild(cardCol);
+            // Fetch all item counts for containers
+            const promises = containers.map(container => {
+                return fetch(`/api/items?container_id=${container.containerId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            return {
+                                containerId: container.containerId,
+                                itemCount: data.total_items || 0
+                            };
+                        }
+                        return {
+                            containerId: container.containerId,
+                            itemCount: 0
+                        };
+                    })
+                    .catch(() => {
+                        return {
+                            containerId: container.containerId,
+                            itemCount: 0
+                        };
+                    });
             });
             
-            // Initialize Feather icons for dynamically added elements
-            feather.replace();
-            
-            // Add event listeners to view details buttons
-            document.querySelectorAll('.view-details-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const containerId = this.getAttribute('data-container-id');
-                    showContainerDetails(containerId);
+            Promise.all(promises).then(itemCounts => {
+                containers.forEach(container => {
+                    const itemCountData = itemCounts.find(ic => ic.containerId === container.containerId);
+                    const itemCount = itemCountData ? itemCountData.itemCount : 0;
+                    
+                    // Add row to table
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-container-id', container.containerId);
+                    
+                    const dimensions = `${container.width} × ${container.depth} × ${container.height} cm`;
+                    
+                    row.innerHTML = `
+                        <td>${container.containerId}</td>
+                        <td>${container.zone}</td>
+                        <td>${dimensions}</td>
+                        <td>${itemCount}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
+                                    data-container-id="${container.containerId}">
+                                <i data-feather="eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger remove-container-btn"
+                                    data-container-id="${container.containerId}">
+                                <i data-feather="trash-2"></i>
+                            </button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                    
+                    // Add card to grid
+                    const cardCol = document.createElement('div');
+                    cardCol.className = 'col';
+                    
+                    cardCol.innerHTML = `
+                        <div class="card h-100" data-container-id="${container.containerId}">
+                            <div class="card-body">
+                                <h5 class="card-title">${container.containerId}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">${container.zone}</h6>
+                                <p class="card-text">
+                                    <strong>Dimensions:</strong> ${dimensions}<br>
+                                    <strong>Items:</strong> ${itemCount}
+                                </p>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
+                                        data-container-id="${container.containerId}">
+                                    <i data-feather="eye"></i> Details
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    gridView.appendChild(cardCol);
+                });
+                
+                // Initialize Feather icons for dynamically added elements
+                feather.replace();
+                
+                // Add event listeners to view details buttons
+                document.querySelectorAll('.view-details-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const containerId = this.getAttribute('data-container-id');
+                        showContainerDetails(containerId);
+                    });
+                });
+                
+                // Add event listeners to remove container buttons
+                document.querySelectorAll('.remove-container-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const containerId = this.getAttribute('data-container-id');
+                        if (confirm(`Are you sure you want to delete container ${containerId}?`)) {
+                            deleteContainer(containerId);
+                        }
+                    });
                 });
             });
         }
@@ -329,18 +429,81 @@
                             document.getElementById('detailsContainerDimensions').textContent = 
                                 `${container.width} × ${container.depth} × ${container.height} cm`;
                             
-                            // TODO: Get actual items in the container from an API endpoint
-                            document.getElementById('detailsSpaceUtilization').textContent = '40%';
-                            document.getElementById('detailsItemsCount').textContent = '3';
-                            document.getElementById('detailsAvgPriority').textContent = '70';
-                            
-                            // For now, show placeholder item data
-                            const itemsTable = document.getElementById('containerItemsTable').querySelector('tbody');
-                            itemsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="6" class="text-center">No items in this container</td>
-                                </tr>
-                            `;
+                            // Get items in this container
+                            fetch(`/api/items?container_id=${containerId}`)
+                                .then(response => response.json())
+                                .then(itemsData => {
+                                    if (itemsData.success) {
+                                        const items = itemsData.items;
+                                        const totalItems = itemsData.total_items;
+                                        
+                                        // Update container stats
+                                        document.getElementById('detailsItemsCount').textContent = totalItems;
+                                        
+                                        // Calculate average priority if items exist
+                                        if (totalItems > 0) {
+                                            const avgPriority = items.reduce((total, item) => total + item.priority, 0) / totalItems;
+                                            document.getElementById('detailsAvgPriority').textContent = Math.round(avgPriority);
+                                            
+                                            // Calculate space utilization
+                                            // This is an approximate calculation
+                                            const containerVolume = container.width * container.depth * container.height;
+                                            let usedVolume = 0;
+                                            
+                                            items.forEach(item => {
+                                                usedVolume += (item.width * item.depth * item.height);
+                                            });
+                                            
+                                            const spaceUtilization = (usedVolume / containerVolume) * 100;
+                                            document.getElementById('detailsSpaceUtilization').textContent = 
+                                                `${Math.min(100, Math.round(spaceUtilization))}%`;
+                                        } else {
+                                            document.getElementById('detailsAvgPriority').textContent = 'N/A';
+                                            document.getElementById('detailsSpaceUtilization').textContent = '0%';
+                                        }
+                                        
+                                        // Display items in table
+                                        const itemsTable = document.getElementById('containerItemsTable').querySelector('tbody');
+                                        
+                                        if (items.length === 0) {
+                                            itemsTable.innerHTML = `
+                                                <tr>
+                                                    <td colspan="6" class="text-center">No items in this container</td>
+                                                </tr>
+                                            `;
+                                        } else {
+                                            itemsTable.innerHTML = '';
+                                            
+                                            items.forEach(item => {
+                                                const expiryDate = item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A';
+                                                const priorityClass = item.priority > 70 ? 'badge-priority-high' :
+                                                                    item.priority > 40 ? 'badge-priority-medium' : 'badge-priority-low';
+                                                
+                                                const row = document.createElement('tr');
+                                                row.innerHTML = `
+                                                    <td>${item.itemId}</td>
+                                                    <td>${item.name}</td>
+                                                    <td><span class="badge ${priorityClass}">${item.priority}</span></td>
+                                                    <td>W:${item.placement.startWidth}-${item.placement.endWidth}, 
+                                                        D:${item.placement.startDepth}-${item.placement.endDepth}, 
+                                                        H:${item.placement.startHeight}-${item.placement.endHeight}</td>
+                                                    <td>${expiryDate}</td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-info retrieve-item-btn" 
+                                                                data-item-id="${item.itemId}">
+                                                            <i data-feather="box"></i> Retrieve
+                                                        </button>
+                                                    </td>
+                                                `;
+                                                itemsTable.appendChild(row);
+                                            });
+                                            
+                                            // Initialize Feather icons for dynamically added elements
+                                            feather.replace();
+                                        }
+                                    }
+                                })
+                                .catch(error => console.error('Error getting items:', error));
                             
                             // Show the modal
                             const containerDetailsModal = new bootstrap.Modal(document.getElementById('containerDetailsModal'));
@@ -348,7 +511,26 @@
                         }
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => console.error('Error getting container:', error));
+        }
+        
+        function deleteContainer(containerId) {
+            fetch(`/api/containers/${containerId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    loadContainers(); // Reload containers after deletion
+                } else {
+                    showAlert('danger', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while deleting the container');
+            });
         }
         
         function showAlert(type, message) {
