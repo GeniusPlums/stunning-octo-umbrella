@@ -1,0 +1,21 @@
+Core Objective of Your Software 
+Your software will act as a stowage advisor to the astronauts, ensuring: 
+1. Efficient Placement of Items – It should suggest where to place new incoming cargo based on space availability, priority, and accessibility while handling the space constraint. 2. Quick Retrieval of Items – When an astronaut searches for an item, it should suggest the item that can be retrieved the fastest. Details about how data related to retrieval is calculated are given below. You can also add additional logic such as retrieving items that are about to expire, etc. 
+3
+3. Rearrangement Optimization – If a new incoming shipment causes space shortage, it should suggest rearranging certain items to optimize space usage. 
+4. Waste Disposal Management – When items become unusable (expired or fully used), the system should: 
+○ Automatically categorize them as waste. 
+○ Suggest which container to move the waste into for undocking. 
+5. Cargo Return Planning – Before a resupply module undocks, the system should provide a clear plan for waste return and space reclamation. 
+6. Logging all the actions performed by the astronauts 
+7. Make sure the algorithms you use are efficient, as power and compute is a valuable resource in space, your scores also depend on this and above mentioned factors. (Rubrics given below) 
+Important Definitions 
+1. Storage Containers (Assumed to be cuboids) 
+● Every container has one of its faces designated as the "open face" (typically one of the larger faces) 
+● The open face is the only side through which items can be inserted or removed ● The origin of the container is taken as the bottom left corner of this open face ● Coordinates within the container are measured as (Width, Depth, Height) where: ○ Width runs horizontally along the open face 
+○ Depth runs perpendicular to the open face, into the container 
+○ Height runs vertically along the open face 
+4
+2. Retrieval 
+● An item can only be moved directly perpendicular to the open face of the container (i.e., straight out from the opening). Only visible items (those directly accessible from the open face) can be moved. The retrieval process requires that no other item obstructs the path of the desired item as it exits the container. 
+● The steps needed for retrieval refer to the number of items that must be temporarily removed (and then placed back) for the desired item to be retrieved. If an item is already visible, its retrieval requires 0 steps. 
