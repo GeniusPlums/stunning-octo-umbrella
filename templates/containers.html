@@ -1,0 +1,377 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Containers{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-sm btn-outline-secondary me-2" id="refreshContainersBtn">
+    <i data-feather="refresh-cw"></i> Refresh
+</button>
+<button class="btn btn-sm btn-primary" id="addContainerBtn">
+    <i data-feather="plus"></i> Add Container
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search containers..." id="containerSearchInput">
+            <button class="btn btn-outline-secondary" type="button" id="containerSearchBtn">
+                <i data-feather="search"></i>
+            </button>
+        </div>
+    </div>
+    <div class="col-md-8 mb-3 text-md-end">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary active" data-view="table" id="tableViewBtn">
+                <i data-feather="list"></i> Table
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-view="grid" id="gridViewBtn">
+                <i data-feather="grid"></i> Grid
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Table view -->
+<div id="tableView">
+    <div class="table-responsive">
+        <table class="table table-hover" id="containersTable">
+            <thead>
+                <tr>
+                    <th>Container ID</th>
+                    <th>Zone</th>
+                    <th>Dimensions (W×D×H)</th>
+                    <th>Items</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Container rows will be loaded dynamically -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Grid view -->
+<div id="gridView" class="row row-cols-1 row-cols-md-3 g-4" style="display: none;">
+    <!-- Container cards will be loaded dynamically -->
+</div>
+
+<!-- Add Container Modal -->
+<div class="modal fade" id="addContainerModal" tabindex="-1" aria-labelledby="addContainerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addContainerModalLabel">Add New Container</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="containerId" class="form-label">Container ID</label>
+                    <input type="text" class="form-control" id="containerId" placeholder="Enter container ID...">
+                </div>
+                <div class="mb-3">
+                    <label for="containerZone" class="form-label">Zone</label>
+                    <input type="text" class="form-control" id="containerZone" placeholder="Enter zone...">
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="containerWidth" class="form-label">Width (cm)</label>
+                        <input type="number" class="form-control" id="containerWidth" placeholder="Width">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="containerDepth" class="form-label">Depth (cm)</label>
+                        <input type="number" class="form-control" id="containerDepth" placeholder="Depth">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="containerHeight" class="form-label">Height (cm)</label>
+                        <input type="number" class="form-control" id="containerHeight" placeholder="Height">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveContainerBtn">Save Container</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container Details Modal -->
+<div class="modal fade" id="containerDetailsModal" tabindex="-1" aria-labelledby="containerDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="containerDetailsModalLabel">Container Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>Container ID:</strong> <span id="detailsContainerId"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Zone:</strong> <span id="detailsContainerZone"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Dimensions:</strong> <span id="detailsContainerDimensions"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>Space Utilization:</strong> <span id="detailsSpaceUtilization"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Items Count:</strong> <span id="detailsItemsCount"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Average Priority:</strong> <span id="detailsAvgPriority"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <h6>Items in Container</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm" id="containerItemsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Priority</th>
+                                <th>Position</th>
+                                <th>Expiry</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Items will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial load
+        loadContainers();
+        
+        // Refresh button
+        document.getElementById('refreshContainersBtn').addEventListener('click', function() {
+            loadContainers();
+        });
+        
+        // View toggle
+        document.getElementById('tableViewBtn').addEventListener('click', function() {
+            document.getElementById('tableView').style.display = 'block';
+            document.getElementById('gridView').style.display = 'none';
+            document.getElementById('tableViewBtn').classList.add('active');
+            document.getElementById('gridViewBtn').classList.remove('active');
+        });
+        
+        document.getElementById('gridViewBtn').addEventListener('click', function() {
+            document.getElementById('tableView').style.display = 'none';
+            document.getElementById('gridView').style.display = 'flex';
+            document.getElementById('tableViewBtn').classList.remove('active');
+            document.getElementById('gridViewBtn').classList.add('active');
+        });
+        
+        // Add container button
+        document.getElementById('addContainerBtn').addEventListener('click', function() {
+            const addContainerModal = new bootstrap.Modal(document.getElementById('addContainerModal'));
+            addContainerModal.show();
+        });
+        
+        // Search functionality
+        document.getElementById('containerSearchBtn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('containerSearchInput').value.toLowerCase();
+            filterContainers(searchTerm);
+        });
+        
+        document.getElementById('containerSearchInput').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                const searchTerm = document.getElementById('containerSearchInput').value.toLowerCase();
+                filterContainers(searchTerm);
+            }
+        });
+        
+        function filterContainers(searchTerm) {
+            // Table view filtering
+            const tableRows = document.getElementById('containersTable').querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Grid view filtering
+            const gridCards = document.getElementById('gridView').querySelectorAll('.card');
+            gridCards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    card.parentElement.style.display = '';
+                } else {
+                    card.parentElement.style.display = 'none';
+                }
+            });
+        }
+        
+        function loadContainers() {
+            fetch('/api/containers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderContainers(data.containers);
+                    } else {
+                        showAlert('danger', data.message || 'Failed to load containers');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while loading containers');
+                });
+        }
+        
+        function renderContainers(containers) {
+            // Table view
+            const tableBody = document.getElementById('containersTable').querySelector('tbody');
+            tableBody.innerHTML = '';
+            
+            // Grid view
+            const gridView = document.getElementById('gridView');
+            gridView.innerHTML = '';
+            
+            containers.forEach(container => {
+                // Add row to table
+                const row = document.createElement('tr');
+                row.setAttribute('data-container-id', container.containerId);
+                
+                const dimensions = `${container.width} × ${container.depth} × ${container.height} cm`;
+                
+                row.innerHTML = `
+                    <td>${container.containerId}</td>
+                    <td>${container.zone}</td>
+                    <td>${dimensions}</td>
+                    <td>0</td> <!-- Placeholder, should be populated with actual count -->
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
+                                data-container-id="${container.containerId}">
+                            <i data-feather="eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger remove-container-btn"
+                                data-container-id="${container.containerId}">
+                            <i data-feather="trash-2"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                
+                // Add card to grid
+                const cardCol = document.createElement('div');
+                cardCol.className = 'col';
+                
+                cardCol.innerHTML = `
+                    <div class="card h-100" data-container-id="${container.containerId}">
+                        <div class="card-body">
+                            <h5 class="card-title">${container.containerId}</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">${container.zone}</h6>
+                            <p class="card-text">
+                                <strong>Dimensions:</strong> ${dimensions}<br>
+                                <strong>Items:</strong> 0
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-outline-primary me-1 view-details-btn" 
+                                    data-container-id="${container.containerId}">
+                                <i data-feather="eye"></i> Details
+                            </button>
+                        </div>
+                    </div>
+                `;
+                gridView.appendChild(cardCol);
+            });
+            
+            // Initialize Feather icons for dynamically added elements
+            feather.replace();
+            
+            // Add event listeners to view details buttons
+            document.querySelectorAll('.view-details-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const containerId = this.getAttribute('data-container-id');
+                    showContainerDetails(containerId);
+                });
+            });
+        }
+        
+        function showContainerDetails(containerId) {
+            // Get container data
+            fetch(`/api/containers`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = data.containers.find(c => c.containerId === containerId);
+                        if (container) {
+                            // Populate modal with container details
+                            document.getElementById('detailsContainerId').textContent = container.containerId;
+                            document.getElementById('detailsContainerZone').textContent = container.zone;
+                            document.getElementById('detailsContainerDimensions').textContent = 
+                                `${container.width} × ${container.depth} × ${container.height} cm`;
+                            
+                            // TODO: Get actual items in the container from an API endpoint
+                            document.getElementById('detailsSpaceUtilization').textContent = '40%';
+                            document.getElementById('detailsItemsCount').textContent = '3';
+                            document.getElementById('detailsAvgPriority').textContent = '70';
+                            
+                            // For now, show placeholder item data
+                            const itemsTable = document.getElementById('containerItemsTable').querySelector('tbody');
+                            itemsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="6" class="text-center">No items in this container</td>
+                                </tr>
+                            `;
+                            
+                            // Show the modal
+                            const containerDetailsModal = new bootstrap.Modal(document.getElementById('containerDetailsModal'));
+                            containerDetailsModal.show();
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertInstance = bootstrap.Alert.getInstance(alertDiv);
+                if (alertInstance) {
+                    alertInstance.close();
+                } else {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

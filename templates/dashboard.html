@@ -1,0 +1,318 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-sm btn-outline-secondary me-2" id="refreshDashboardBtn">
+    <i data-feather="refresh-cw"></i> Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- System stats cards -->
+    <div class="col-md-3">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Items</h5>
+                <p class="card-text display-4" id="totalItems">0</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Containers</h5>
+                <p class="card-text display-4" id="totalContainers">0</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Space Utilization</h5>
+                <p class="card-text display-4" id="spaceUtilization">0%</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Waste Items</h5>
+                <p class="card-text display-4" id="wasteItems">0</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent activity -->
+    <div class="col-md-7">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recentActivityTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Logs will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('logs') }}" class="btn btn-sm btn-outline-secondary">View All Logs</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Critical items -->
+    <div class="col-md-5">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Critical Items</h5>
+            </div>
+            <div class="card-body">
+                <div id="criticalItemsContainer">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="criticalItemsTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Priority</th>
+                                    <th>Expiry</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Items will be loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="noCriticalItems" class="text-center py-4 d-none">
+                    <i data-feather="check-circle" class="text-success mb-2" style="width: 48px; height: 48px;"></i>
+                    <p>No critical items at this time</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Soon to Expire</h5>
+            </div>
+            <div class="card-body">
+                <div id="expiringItemsContainer">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="expiringItemsTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Expires In</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Items will be loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="noExpiringItems" class="text-center py-4 d-none">
+                    <i data-feather="check-circle" class="text-success mb-2" style="width: 48px; height: 48px;"></i>
+                    <p>No items expiring soon</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial load
+        loadDashboardData();
+        
+        // Refresh button
+        document.getElementById('refreshDashboardBtn').addEventListener('click', function() {
+            loadDashboardData();
+        });
+        
+        function loadDashboardData() {
+            // Load items
+            fetch('/api/items')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateItemStats(data.items);
+                    }
+                })
+                .catch(error => console.error('Error loading items:', error));
+            
+            // Load containers
+            fetch('/api/containers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateContainerStats(data.containers);
+                    }
+                })
+                .catch(error => console.error('Error loading containers:', error));
+            
+            // Load logs
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateActivityLog(data.logs);
+                    }
+                })
+                .catch(error => console.error('Error loading logs:', error));
+        }
+        
+        function updateItemStats(items) {
+            // Update item counters
+            document.getElementById('totalItems').textContent = items.length;
+            
+            // Count waste items
+            const wasteCount = items.filter(item => item.isWaste).length;
+            document.getElementById('wasteItems').textContent = wasteCount;
+            
+            // Display critical items (high priority)
+            const criticalItems = items
+                .filter(item => !item.isWaste && item.priority >= 90)
+                .sort((a, b) => b.priority - a.priority);
+            
+            const criticalItemsTable = document.getElementById('criticalItemsTable').querySelector('tbody');
+            criticalItemsTable.innerHTML = '';
+            
+            if (criticalItems.length > 0) {
+                document.getElementById('criticalItemsContainer').classList.remove('d-none');
+                document.getElementById('noCriticalItems').classList.add('d-none');
+                
+                criticalItems.forEach(item => {
+                    const row = document.createElement('tr');
+                    const expiryText = item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A';
+                    
+                    row.innerHTML = `
+                        <td>${item.name}</td>
+                        <td><span class="badge bg-danger">${item.priority}</span></td>
+                        <td>${expiryText}</td>
+                    `;
+                    criticalItemsTable.appendChild(row);
+                });
+            } else {
+                document.getElementById('criticalItemsContainer').classList.add('d-none');
+                document.getElementById('noCriticalItems').classList.remove('d-none');
+            }
+            
+            // Display soon-to-expire items
+            const currentDate = new Date();
+            const expiringItems = items
+                .filter(item => {
+                    if (!item.isWaste && item.expiryDate) {
+                        const expiryDate = new Date(item.expiryDate);
+                        const daysUntilExpiry = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                        return daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
+                    }
+                    return false;
+                })
+                .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+            
+            const expiringItemsTable = document.getElementById('expiringItemsTable').querySelector('tbody');
+            expiringItemsTable.innerHTML = '';
+            
+            if (expiringItems.length > 0) {
+                document.getElementById('expiringItemsContainer').classList.remove('d-none');
+                document.getElementById('noExpiringItems').classList.add('d-none');
+                
+                expiringItems.forEach(item => {
+                    const expiryDate = new Date(item.expiryDate);
+                    const daysUntilExpiry = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.name}</td>
+                        <td>${daysUntilExpiry} days</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary retrieve-btn" data-item-name="${item.name}">
+                                Retrieve
+                            </button>
+                        </td>
+                    `;
+                    expiringItemsTable.appendChild(row);
+                });
+                
+                // Add event listeners to retrieve buttons
+                document.querySelectorAll('.retrieve-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const itemName = this.getAttribute('data-item-name');
+                        // Open retrieve modal and pre-fill the name
+                        document.getElementById('itemNameSearch').value = itemName;
+                        const retrieveItemModal = new bootstrap.Modal(document.getElementById('retrieveItemModal'));
+                        retrieveItemModal.show();
+                    });
+                });
+            } else {
+                document.getElementById('expiringItemsContainer').classList.add('d-none');
+                document.getElementById('noExpiringItems').classList.remove('d-none');
+            }
+        }
+        
+        function updateContainerStats(containers) {
+            document.getElementById('totalContainers').textContent = containers.length;
+            
+            // This is just a placeholder - in a real app, we would calculate actual space utilization
+            document.getElementById('spaceUtilization').textContent = '78%';
+        }
+        
+        function updateActivityLog(logs) {
+            const activityTable = document.getElementById('recentActivityTable').querySelector('tbody');
+            activityTable.innerHTML = '';
+            
+            // Display the 10 most recent logs
+            logs.slice(0, 10).forEach(log => {
+                const row = document.createElement('tr');
+                
+                const timestamp = new Date(log.timestamp);
+                const formattedDate = timestamp.toLocaleDateString();
+                const formattedTime = timestamp.toLocaleTimeString();
+                
+                const actionType = capitalizeFirstLetter(log.actionType);
+                
+                row.innerHTML = `
+                    <td>${formattedDate}<br><small class="text-muted">${formattedTime}</small></td>
+                    <td><span class="badge ${getActionBadgeClass(log.actionType)}">${actionType}</span></td>
+                    <td>${log.details || ''}</td>
+                `;
+                activityTable.appendChild(row);
+            });
+        }
+        
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        
+        function getActionBadgeClass(actionType) {
+            switch(actionType) {
+                case 'placement': return 'bg-success';
+                case 'retrieval': return 'bg-primary';
+                case 'waste': return 'bg-warning';
+                case 'undock': return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+    });
+</script>
+{% endblock %}

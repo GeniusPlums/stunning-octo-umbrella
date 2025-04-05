@@ -1,0 +1,556 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Time Simulation{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button class="btn btn-sm btn-outline-primary" id="nextDayBtn">
+        <i data-feather="chevron-right"></i> Next Day
+    </button>
+    <button class="btn btn-sm btn-primary" id="fastForwardBtn">
+        <i data-feather="fast-forward"></i> Fast Forward
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Time Advance</h5>
+            </div>
+            <div class="card-body">
+                <p>Simulate the passage of time to test expiry dates and usage limits. This will help with mission planning and waste management.</p>
+                
+                <div class="mb-3">
+                    <label for="fastForwardDays" class="form-label">Number of Days</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="fastForwardDays" value="7" min="1" max="365">
+                        <button class="btn btn-primary" id="simulateTimeBtn">Simulate</button>
+                    </div>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="showItemsCheck" checked>
+                    <label class="form-check-label" for="showItemsCheck">Include item usage during simulation</label>
+                </div>
+                
+                <div id="itemUsageSection">
+                    <div class="card bg-dark">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Select Items Used During Simulation</h6>
+                                <button class="btn btn-sm btn-outline-light" id="selectItemsBtn">Confirm Selection</button>
+                            </div>
+                        </div>
+                        <div class="card-body overflow-auto" style="max-height: 200px;">
+                            <div id="availableItems">
+                                <!-- Items will be loaded dynamically -->
+                                <div class="text-center py-3">
+                                    <div class="spinner-border text-secondary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <small class="text-muted">Selected: <span id="selectedItemsCount">0</span> items</small>
+                            <div id="selectedItemsDisplay" class="mt-2"></div>
+                            <input type="hidden" id="usedItemsInput" value="[]">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Current Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 text-center">
+                            <h6>Total Items</h6>
+                            <p class="display-6" id="statusTotalItems">0</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 text-center">
+                            <h6>Days Simulated</h6>
+                            <p class="display-6" id="statusDaysSimulated">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-2">
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 text-center">
+                            <h6>Expiring Soon</h6>
+                            <p class="display-6" id="statusExpiringSoon">0</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 text-center">
+                            <h6>Waste Items</h6>
+                            <p class="display-6" id="statusWasteItems">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <p><strong>Current Date:</strong> <span id="currentDate"></span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="simulationResults" class="card mb-4 d-none">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Simulation Results</h5>
+            </div>
+            <div class="card-body" id="simulationChanges">
+                <!-- Results will be displayed here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Timeline</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="clearTimelineBtn">Clear</button>
+            </div>
+            <div class="card-body">
+                <div id="timelineContainer" class="p-3">
+                    <div class="text-center py-5" id="emptyTimeline">
+                        <i data-feather="clock" style="width: 48px; height: 48px;" class="text-muted mb-3"></i>
+                        <p class="text-muted">No simulation events yet. Use the controls above to simulate time passage.</p>
+                    </div>
+                    <div id="timelineEvents" class="timeline" style="display: none;">
+                        <!-- Timeline events will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial load
+        setCurrentDate();
+        loadItems();
+        updateStats();
+        
+        // Next day button
+        document.getElementById('nextDayBtn').addEventListener('click', function() {
+            simulateTime(1);
+        });
+        
+        // Fast forward button
+        document.getElementById('fastForwardBtn').addEventListener('click', function() {
+            const days = parseInt(document.getElementById('fastForwardDays').value) || 7;
+            simulateTime(days);
+        });
+        
+        // Simulate button
+        document.getElementById('simulateTimeBtn').addEventListener('click', function() {
+            const days = parseInt(document.getElementById('fastForwardDays').value) || 7;
+            simulateTime(days);
+        });
+        
+        // Toggle item usage section
+        document.getElementById('showItemsCheck').addEventListener('change', function() {
+            document.getElementById('itemUsageSection').style.display = this.checked ? 'block' : 'none';
+        });
+        
+        // Clear timeline button
+        document.getElementById('clearTimelineBtn').addEventListener('click', function() {
+            clearTimeline();
+        });
+        
+        function loadItems() {
+            fetch('/api/items')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderAvailableItems(data.items.filter(item => !item.isWaste));
+                        updateStats(data.items);
+                    } else {
+                        showAlert('danger', data.message || 'Failed to load items');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while loading items');
+                });
+        }
+        
+        function renderAvailableItems(items) {
+            const availableItemsDiv = document.getElementById('availableItems');
+            
+            if (items.length === 0) {
+                availableItemsDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <i data-feather="info"></i> No items available
+                    </div>
+                `;
+                return;
+            }
+            
+            availableItemsDiv.innerHTML = '';
+            
+            // Sort items by priority
+            items.sort((a, b) => b.priority - a.priority);
+            
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'form-check mb-2';
+                
+                // Determine badge class based on priority
+                let badgeClass = 'bg-secondary';
+                if (item.priority >= 90) {
+                    badgeClass = 'bg-danger';
+                } else if (item.priority >= 60) {
+                    badgeClass = 'bg-warning';
+                } else if (item.priority >= 30) {
+                    badgeClass = 'bg-info';
+                }
+                
+                itemDiv.innerHTML = `
+                    <input class="form-check-input item-checkbox" type="checkbox" value="${item.itemId}" id="item-${item.itemId}">
+                    <label class="form-check-label d-flex justify-content-between" for="item-${item.itemId}">
+                        ${item.name}
+                        <span class="badge ${badgeClass} ms-2">${item.priority}</span>
+                    </label>
+                `;
+                
+                availableItemsDiv.appendChild(itemDiv);
+            });
+            
+            // Initialize feather icons for dynamically added elements
+            feather.replace();
+        }
+        
+        function updateStats(items) {
+            if (!items) {
+                // If items not provided, fetch them
+                fetch('/api/items')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateStatsFromItems(data.items);
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                return;
+            }
+            
+            updateStatsFromItems(items);
+        }
+        
+        function updateStatsFromItems(items) {
+            const totalItems = items.length;
+            document.getElementById('statusTotalItems').textContent = totalItems;
+            
+            // Count waste items
+            const wasteItems = items.filter(item => item.isWaste).length;
+            document.getElementById('statusWasteItems').textContent = wasteItems;
+            
+            // Count items expiring in next 30 days
+            const now = new Date();
+            const thirtyDaysFromNow = new Date(now);
+            thirtyDaysFromNow.setDate(now.getDate() + 30);
+            
+            const expiringItems = items.filter(item => {
+                if (!item.expiryDate || item.isWaste) return false;
+                const expiryDate = new Date(item.expiryDate);
+                return expiryDate > now && expiryDate <= thirtyDaysFromNow;
+            }).length;
+            
+            document.getElementById('statusExpiringSoon').textContent = expiringItems;
+        }
+        
+        function setCurrentDate() {
+            const now = new Date();
+            document.getElementById('currentDate').textContent = now.toLocaleDateString();
+        }
+        
+        function simulateTime(days) {
+            // Get selected items
+            const usedItems = [];
+            if (document.getElementById('showItemsCheck').checked) {
+                document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+                    usedItems.push(checkbox.value);
+                });
+            }
+            
+            fetch('/api/simulation/time', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    days: days,
+                    usedItems: usedItems
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update display
+                    updateSimulationResults(data);
+                    
+                    // Update stats and items
+                    loadItems();
+                    
+                    // Update date
+                    setCurrentDate();
+                    
+                    // Update days simulated
+                    const currentDays = parseInt(document.getElementById('statusDaysSimulated').textContent) || 0;
+                    document.getElementById('statusDaysSimulated').textContent = currentDays + days;
+                    
+                    // Add to timeline
+                    addTimelineEvent(days, data.changes);
+                    
+                    // Reset checkboxes
+                    document.querySelectorAll('.item-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    
+                    document.getElementById('selectedItemsCount').textContent = '0';
+                    document.getElementById('selectedItemsDisplay').innerHTML = '';
+                    document.getElementById('usedItemsInput').value = '[]';
+                    
+                    showAlert('success', `Advanced time by ${days} day(s)`);
+                } else {
+                    showAlert('danger', data.message || 'Failed to simulate time');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while simulating time');
+            });
+        }
+        
+        function updateSimulationResults(data) {
+            const resultsDiv = document.getElementById('simulationResults');
+            resultsDiv.classList.remove('d-none');
+            
+            const changesDiv = document.getElementById('simulationChanges');
+            
+            // Create results HTML
+            const changes = data.changes;
+            let changesHtml = `
+                <div class="alert alert-info">
+                    <strong>Time Advanced:</strong> ${changes.date.from} → ${changes.date.to}
+                </div>
+            `;
+            
+            // Expired items
+            if (changes.expiredItems && changes.expiredItems.length > 0) {
+                changesHtml += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0">Expired Items (${changes.expiredItems.length})</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                `;
+                
+                changes.expiredItems.forEach(item => {
+                    changesHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            ${item.name}
+                            <span class="badge bg-warning text-dark">Expired on ${new Date(item.expiryDate).toLocaleDateString()}</span>
+                        </li>
+                    `;
+                });
+                
+                changesHtml += `
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Used up items
+            if (changes.usedUpItems && changes.usedUpItems.length > 0) {
+                changesHtml += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-danger">
+                            <h6 class="mb-0">Used Up Items (${changes.usedUpItems.length})</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                `;
+                
+                changes.usedUpItems.forEach(item => {
+                    changesHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            ${item.name}
+                            <span class="badge bg-danger">No uses remaining</span>
+                        </li>
+                    `;
+                });
+                
+                changesHtml += `
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // No changes
+            if ((!changes.expiredItems || changes.expiredItems.length === 0) && 
+                (!changes.usedUpItems || changes.usedUpItems.length === 0)) {
+                changesHtml += `
+                    <div class="alert alert-success">
+                        <i data-feather="check-circle"></i> No items expired or were used up during this time period.
+                    </div>
+                `;
+            }
+            
+            // Add action button to identify waste
+            changesHtml += `
+                <div class="mt-3">
+                    <button class="btn btn-warning" id="identifyWasteAfterSimBtn">
+                        <i data-feather="trash-2"></i> Identify Waste Items
+                    </button>
+                </div>
+            `;
+            
+            changesDiv.innerHTML = changesHtml;
+            
+            // Initialize feather icons for dynamically added elements
+            feather.replace();
+            
+            // Add event listener to waste button
+            document.getElementById('identifyWasteAfterSimBtn').addEventListener('click', function() {
+                identifyWaste();
+            });
+        }
+        
+        function addTimelineEvent(days, changes) {
+            const timelineEvents = document.getElementById('timelineEvents');
+            const emptyTimeline = document.getElementById('emptyTimeline');
+            
+            // Show timeline, hide empty message
+            timelineEvents.style.display = 'block';
+            emptyTimeline.style.display = 'none';
+            
+            // Create event element
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'timeline-item';
+            
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString();
+            const formattedTime = now.toLocaleTimeString();
+            
+            // Count changes
+            const expiredCount = changes.expiredItems ? changes.expiredItems.length : 0;
+            const usedUpCount = changes.usedUpItems ? changes.usedUpItems.length : 0;
+            const totalChanges = expiredCount + usedUpCount;
+            
+            let badgeClass = 'bg-success';
+            if (totalChanges > 0) {
+                badgeClass = 'bg-warning';
+            }
+            
+            eventDiv.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="card-title">Advanced ${days} day(s)</h6>
+                            <small class="text-muted">${formattedDate} ${formattedTime}</small>
+                        </div>
+                        <p class="card-text">
+                            <span class="badge ${badgeClass}">${totalChanges} changes</span>
+                            ${expiredCount > 0 ? `<span class="badge bg-warning text-dark ms-1">${expiredCount} expired</span>` : ''}
+                            ${usedUpCount > 0 ? `<span class="badge bg-danger ms-1">${usedUpCount} used up</span>` : ''}
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Add to beginning of timeline
+            timelineEvents.insertBefore(eventDiv, timelineEvents.firstChild);
+            
+            // Initialize feather icons for the new element
+            feather.replace();
+        }
+        
+        function clearTimeline() {
+            const timelineEvents = document.getElementById('timelineEvents');
+            const emptyTimeline = document.getElementById('emptyTimeline');
+            
+            // Clear timeline events
+            timelineEvents.innerHTML = '';
+            timelineEvents.style.display = 'none';
+            
+            // Show empty message
+            emptyTimeline.style.display = 'block';
+        }
+        
+        function identifyWaste() {
+            fetch('/api/waste/identify')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('success', `Identified ${data.wasteItems.length} waste items`);
+                        
+                        // Update stats and items
+                        loadItems();
+                        
+                        // If there are waste items, suggest disposal
+                        if (data.wasteItems.length > 0) {
+                            if (confirm(`${data.wasteItems.length} waste items identified. Would you like to plan waste disposal?`)) {
+                                // Open waste disposal modal
+                                fetchContainers().then(() => {
+                                    const wasteDisposalModal = new bootstrap.Modal(document.getElementById('wasteDisposalModal'));
+                                    wasteDisposalModal.show();
+                                });
+                            }
+                        }
+                    } else {
+                        showAlert('danger', data.message || 'Failed to identify waste items');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while identifying waste items');
+                });
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertInstance = bootstrap.Alert.getInstance(alertDiv);
+                if (alertInstance) {
+                    alertInstance.close();
+                } else {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

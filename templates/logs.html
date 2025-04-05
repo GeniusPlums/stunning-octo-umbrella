@@ -1,0 +1,395 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Activity Logs{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-sm btn-outline-secondary me-2" id="refreshLogsBtn">
+    <i data-feather="refresh-cw"></i> Refresh
+</button>
+<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+    <i data-feather="filter"></i> Filter
+</button>
+<ul class="dropdown-menu" aria-labelledby="filterDropdown">
+    <li><a class="dropdown-item" href="#" data-filter="all">All Actions</a></li>
+    <li><a class="dropdown-item" href="#" data-filter="placement">Placements</a></li>
+    <li><a class="dropdown-item" href="#" data-filter="retrieval">Retrievals</a></li>
+    <li><a class="dropdown-item" href="#" data-filter="waste">Waste Management</a></li>
+    <li><a class="dropdown-item" href="#" data-filter="undock">Undocking</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search logs..." id="logSearchInput">
+            <button class="btn btn-outline-secondary" type="button" id="logSearchBtn">
+                <i data-feather="search"></i>
+            </button>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="input-group">
+            <span class="input-group-text">From</span>
+            <input type="date" class="form-control" id="dateFromInput">
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="input-group">
+            <span class="input-group-text">To</span>
+            <input type="date" class="form-control" id="dateToInput">
+            <button class="btn btn-outline-secondary" type="button" id="dateFilterBtn">Apply</button>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mb-3" id="filterNotice" style="display: none;">
+    <i data-feather="info"></i> Showing filtered results. <a href="#" id="clearFiltersBtn">Clear filters</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover" id="logsTable">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>Item</th>
+                <th>Container</th>
+                <th>Astronaut</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Logs will be loaded dynamically -->
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div>
+        <span id="logCount"></span> logs found
+    </div>
+    <div>
+        <nav aria-label="Log pagination">
+            <ul class="pagination">
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                </li>
+                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="#">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Log Details Modal -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1" aria-labelledby="logDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logDetailsModalLabel">Log Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Timestamp:</strong> <span id="detailsTimestamp"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Action Type:</strong> <span id="detailsActionType"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Item ID:</strong> <span id="detailsItemId"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Container ID:</strong> <span id="detailsContainerId"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Astronaut ID:</strong> <span id="detailsAstronautId"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Details:</strong>
+                    <p id="detailsText"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial load
+        loadLogs();
+        
+        // Refresh button
+        document.getElementById('refreshLogsBtn').addEventListener('click', function() {
+            loadLogs();
+        });
+        
+        // Filter dropdown
+        document.querySelectorAll('[data-filter]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filter = this.getAttribute('data-filter');
+                filterLogsByType(filter);
+            });
+        });
+        
+        // Search functionality
+        document.getElementById('logSearchBtn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('logSearchInput').value.toLowerCase();
+            searchLogs(searchTerm);
+        });
+        
+        document.getElementById('logSearchInput').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                const searchTerm = document.getElementById('logSearchInput').value.toLowerCase();
+                searchLogs(searchTerm);
+            }
+        });
+        
+        // Date filter
+        document.getElementById('dateFilterBtn').addEventListener('click', function() {
+            const fromDate = document.getElementById('dateFromInput').value;
+            const toDate = document.getElementById('dateToInput').value;
+            
+            if (fromDate || toDate) {
+                filterLogsByDate(fromDate, toDate);
+            }
+        });
+        
+        // Clear filters
+        document.getElementById('clearFiltersBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            clearFilters();
+        });
+        
+        function loadLogs() {
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderLogs(data.logs);
+                    } else {
+                        showAlert('danger', data.message || 'Failed to load logs');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while loading logs');
+                });
+        }
+        
+        function renderLogs(logs) {
+            const tableBody = document.getElementById('logsTable').querySelector('tbody');
+            tableBody.innerHTML = '';
+            
+            // Update log count
+            document.getElementById('logCount').textContent = logs.length;
+            
+            if (logs.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="6" class="text-center">No logs found</td>
+                `;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            logs.forEach(log => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-log-id', log.id);
+                row.setAttribute('data-action-type', log.actionType);
+                row.setAttribute('data-timestamp', log.timestamp);
+                
+                const timestamp = new Date(log.timestamp);
+                const formattedDate = timestamp.toLocaleDateString();
+                const formattedTime = timestamp.toLocaleTimeString();
+                
+                const actionType = capitalizeFirstLetter(log.actionType);
+                const actionBadgeClass = getActionBadgeClass(log.actionType);
+                
+                row.innerHTML = `
+                    <td>${formattedDate} ${formattedTime}</td>
+                    <td><span class="badge ${actionBadgeClass}">${actionType}</span></td>
+                    <td>${log.itemId || '-'}</td>
+                    <td>${log.containerId || '-'}</td>
+                    <td>${log.astronautId || '-'}</td>
+                    <td>${log.details || '-'}</td>
+                `;
+                
+                row.addEventListener('click', function() {
+                    showLogDetails(log);
+                });
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Initialize Feather icons for dynamically added elements
+            feather.replace();
+        }
+        
+        function showLogDetails(log) {
+            const timestamp = new Date(log.timestamp);
+            const formattedDate = timestamp.toLocaleDateString();
+            const formattedTime = timestamp.toLocaleTimeString();
+            
+            document.getElementById('detailsTimestamp').textContent = `${formattedDate} ${formattedTime}`;
+            document.getElementById('detailsActionType').textContent = capitalizeFirstLetter(log.actionType);
+            document.getElementById('detailsItemId').textContent = log.itemId || 'N/A';
+            document.getElementById('detailsContainerId').textContent = log.containerId || 'N/A';
+            document.getElementById('detailsAstronautId').textContent = log.astronautId || 'N/A';
+            document.getElementById('detailsText').textContent = log.details || 'No additional details';
+            
+            const logDetailsModal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+            logDetailsModal.show();
+        }
+        
+        function filterLogsByType(type) {
+            const rows = document.getElementById('logsTable').querySelectorAll('tbody tr');
+            
+            if (type === 'all') {
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+                
+                // Hide filter notice
+                document.getElementById('filterNotice').style.display = 'none';
+            } else {
+                rows.forEach(row => {
+                    const actionType = row.getAttribute('data-action-type');
+                    if (actionType === type) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Show filter notice
+                document.getElementById('filterNotice').style.display = 'block';
+            }
+            
+            // Update log count
+            updateLogCount();
+        }
+        
+        function searchLogs(searchTerm) {
+            const rows = document.getElementById('logsTable').querySelectorAll('tbody tr');
+            
+            if (!searchTerm) {
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+                
+                // Hide filter notice
+                document.getElementById('filterNotice').style.display = 'none';
+            } else {
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Show filter notice
+                document.getElementById('filterNotice').style.display = 'block';
+            }
+            
+            // Update log count
+            updateLogCount();
+        }
+        
+        function filterLogsByDate(fromDate, toDate) {
+            const rows = document.getElementById('logsTable').querySelectorAll('tbody tr');
+            
+            const fromTimestamp = fromDate ? new Date(fromDate).getTime() : 0;
+            const toTimestamp = toDate ? new Date(toDate + 'T23:59:59').getTime() : Infinity;
+            
+            rows.forEach(row => {
+                const timestamp = new Date(row.getAttribute('data-timestamp')).getTime();
+                if (timestamp >= fromTimestamp && timestamp <= toTimestamp) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Show filter notice
+            document.getElementById('filterNotice').style.display = 'block';
+            
+            // Update log count
+            updateLogCount();
+        }
+        
+        function clearFilters() {
+            // Clear input fields
+            document.getElementById('logSearchInput').value = '';
+            document.getElementById('dateFromInput').value = '';
+            document.getElementById('dateToInput').value = '';
+            
+            // Show all rows
+            const rows = document.getElementById('logsTable').querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // Hide filter notice
+            document.getElementById('filterNotice').style.display = 'none';
+            
+            // Update log count
+            updateLogCount();
+        }
+        
+        function updateLogCount() {
+            const visibleRows = document.querySelectorAll('#logsTable tbody tr:not([style*="display: none"])');
+            document.getElementById('logCount').textContent = visibleRows.length;
+        }
+        
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        
+        function getActionBadgeClass(actionType) {
+            switch(actionType) {
+                case 'placement': return 'bg-success';
+                case 'retrieval': return 'bg-primary';
+                case 'waste': return 'bg-warning';
+                case 'undock': return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertInstance = bootstrap.Alert.getInstance(alertDiv);
+                if (alertInstance) {
+                    alertInstance.close();
+                } else {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

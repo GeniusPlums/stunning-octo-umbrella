@@ -1,0 +1,147 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Space Station Cargo Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2 text-center mb-5">
+        <h1 class="display-4">Space Station Cargo Management System</h1>
+        <p class="lead">Optimize storage, retrieval, and waste management for space station operations.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i data-feather="box" class="me-2"></i>Storage Optimization</h5>
+                <p class="card-text">Efficient placement of new cargo based on space availability, priority, and accessibility.</p>
+                <a href="{{ url_for('containers') }}" class="btn btn-primary">Manage Containers</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i data-feather="search" class="me-2"></i>Item Retrieval</h5>
+                <p class="card-text">Quickly find items with optimal retrieval paths that minimize movement of other items.</p>
+                <button class="btn btn-primary" id="quickRetrieveBtn">Retrieve Item</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i data-feather="trash-2" class="me-2"></i>Waste Management</h5>
+                <p class="card-text">Track expired items and plan efficient waste disposal for undocking operations.</p>
+                <button class="btn btn-primary" id="quickWasteBtn">Manage Waste</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i data-feather="fast-forward" class="me-2"></i>Time Simulation</h5>
+                <p class="card-text">Simulate time passing to test expiry dates and plan future operations.</p>
+                <div class="d-flex">
+                    <button class="btn btn-secondary me-2" id="nextDayBtn">Next Day</button>
+                    <button class="btn btn-secondary" id="fastForwardBtn">Fast Forward</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i data-feather="activity" class="me-2"></i>System Status</h5>
+                <p class="card-text">Monitor overall system status and recent activity.</p>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">View Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Quick access buttons on home page
+        document.getElementById('quickRetrieveBtn').addEventListener('click', function() {
+            const retrieveItemModal = new bootstrap.Modal(document.getElementById('retrieveItemModal'));
+            retrieveItemModal.show();
+        });
+        
+        document.getElementById('quickWasteBtn').addEventListener('click', function() {
+            const wasteDisposalModal = new bootstrap.Modal(document.getElementById('wasteDisposalModal'));
+            // Load container data for the modal
+            fetchContainers().then(() => {
+                wasteDisposalModal.show();
+            });
+        });
+        
+        document.getElementById('nextDayBtn').addEventListener('click', function() {
+            simulateTime(1);
+        });
+        
+        document.getElementById('fastForwardBtn').addEventListener('click', function() {
+            // Prompt for number of days
+            const days = prompt("Enter number of days to fast forward:", "7");
+            if (days && !isNaN(days) && parseInt(days) > 0) {
+                simulateTime(parseInt(days));
+            }
+        });
+        
+        function simulateTime(days) {
+            fetch('/api/simulation/time', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    days: days
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', `Advanced time by ${days} day(s). ${data.changes.expiredItems.length} items expired.`);
+                } else {
+                    showAlert('danger', data.message || 'Failed to simulate time');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while simulating time');
+            });
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertInstance = bootstrap.Alert.getInstance(alertDiv);
+                if (alertInstance) {
+                    alertInstance.close();
+                } else {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

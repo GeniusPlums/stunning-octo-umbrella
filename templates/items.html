@@ -1,0 +1,588 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Items Inventory{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-sm btn-outline-secondary me-2" id="refreshItemsBtn">
+    <i data-feather="refresh-cw"></i> Refresh
+</button>
+<button class="btn btn-sm btn-primary" id="manageWasteBtn">
+    <i data-feather="trash-2"></i> Identify Waste
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search items..." id="itemSearchInput">
+            <button class="btn btn-outline-secondary" type="button" id="itemSearchBtn">
+                <i data-feather="search"></i>
+            </button>
+        </div>
+    </div>
+    <div class="col-md-8 mb-3">
+        <div class="btn-group me-2" role="group">
+            <button type="button" class="btn btn-outline-secondary active" data-filter="all" id="filterAllBtn">All</button>
+            <button type="button" class="btn btn-outline-secondary" data-filter="normal" id="filterNormalBtn">Normal</button>
+            <button type="button" class="btn btn-outline-secondary" data-filter="critical" id="filterCriticalBtn">Critical</button>
+            <button type="button" class="btn btn-outline-secondary" data-filter="expiring" id="filterExpiringBtn">Expiring</button>
+            <button type="button" class="btn btn-outline-secondary" data-filter="waste" id="filterWasteBtn">Waste</button>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover" id="itemsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Dimensions</th>
+                <th>Priority</th>
+                <th>Location</th>
+                <th>Expiry</th>
+                <th>Uses</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Items will be loaded dynamically -->
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div>
+        <span id="itemCount"></span> items found
+    </div>
+    <div>
+        <!-- Pagination could be added here if needed -->
+    </div>
+</div>
+
+<!-- Item Details Modal -->
+<div class="modal fade" id="itemDetailsModal" tabindex="-1" aria-labelledby="itemDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="itemDetailsModalLabel">Item Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>Item ID:</strong> <span id="detailsItemId"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Name:</strong> <span id="detailsItemName"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Dimensions:</strong> <span id="detailsItemDimensions"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Mass:</strong> <span id="detailsItemMass"></span> kg
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>Priority:</strong> <span id="detailsItemPriority"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Preferred Zone:</strong> <span id="detailsItemPreferredZone"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Expiry Date:</strong> <span id="detailsItemExpiryDate"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Usage Limit:</strong> <span id="detailsItemUsageLimit"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Remaining Uses:</strong> <span id="detailsItemRemainingUses"></span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Status:</strong> <span id="detailsItemStatus"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="itemPlacementDetails">
+                    <h6>Current Placement</h6>
+                    <div id="placementInfo">
+                        <!-- Placement information will be added here -->
+                    </div>
+                </div>
+
+                <div id="retrievalInstructions" class="mt-3">
+                    <h6>Retrieval Instructions</h6>
+                    <div id="retrievalInfo">
+                        <!-- Retrieval instructions will be added here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="retrieveItemFromDetailsBtn">Retrieve</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Identify Waste Modal -->
+<div class="modal fade" id="identifyWasteModal" tabindex="-1" aria-labelledby="identifyWasteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="identifyWasteModalLabel">Identify Waste Items</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Scan all items to identify those that have expired or reached their usage limit.</p>
+                <div id="wasteIdentificationResults" class="d-none">
+                    <div class="alert alert-success">
+                        <i data-feather="check"></i> 
+                        Scan complete! <span id="wasteItemsCount">0</span> waste items identified.
+                    </div>
+                    <div id="wasteItemsList">
+                        <!-- Waste items will be listed here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="scanForWasteBtn">Scan</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial load
+        loadItems();
+        
+        // Refresh button
+        document.getElementById('refreshItemsBtn').addEventListener('click', function() {
+            loadItems();
+        });
+        
+        // Filter buttons
+        document.querySelectorAll('[data-filter]').forEach(button => {
+            button.addEventListener('click', function() {
+                // Set active button
+                document.querySelectorAll('[data-filter]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Apply filter
+                const filter = this.getAttribute('data-filter');
+                filterItems(filter);
+            });
+        });
+        
+        // Search functionality
+        document.getElementById('itemSearchBtn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('itemSearchInput').value.toLowerCase();
+            searchItems(searchTerm);
+        });
+        
+        document.getElementById('itemSearchInput').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                const searchTerm = document.getElementById('itemSearchInput').value.toLowerCase();
+                searchItems(searchTerm);
+            }
+        });
+        
+        // Manage waste button
+        document.getElementById('manageWasteBtn').addEventListener('click', function() {
+            const identifyWasteModal = new bootstrap.Modal(document.getElementById('identifyWasteModal'));
+            identifyWasteModal.show();
+        });
+        
+        // Scan for waste button
+        document.getElementById('scanForWasteBtn').addEventListener('click', function() {
+            scanForWaste();
+        });
+        
+        // Retrieve item from details button
+        document.getElementById('retrieveItemFromDetailsBtn').addEventListener('click', function() {
+            const itemId = document.getElementById('detailsItemId').textContent;
+            const itemName = document.getElementById('detailsItemName').textContent;
+            
+            // Set the search input and open the retrieve modal
+            document.getElementById('itemNameSearch').value = itemName;
+            
+            // Close the details modal
+            const detailsModal = bootstrap.Modal.getInstance(document.getElementById('itemDetailsModal'));
+            detailsModal.hide();
+            
+            // Open the retrieve modal
+            const retrieveItemModal = new bootstrap.Modal(document.getElementById('retrieveItemModal'));
+            retrieveItemModal.show();
+        });
+        
+        function loadItems() {
+            fetch('/api/items')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderItems(data.items);
+                    } else {
+                        showAlert('danger', data.message || 'Failed to load items');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while loading items');
+                });
+        }
+        
+        function renderItems(items) {
+            const tableBody = document.getElementById('itemsTable').querySelector('tbody');
+            tableBody.innerHTML = '';
+            
+            // Update item count
+            document.getElementById('itemCount').textContent = items.length;
+            
+            if (items.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="9" class="text-center">No items found</td>
+                `;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            // Sort items by priority (highest first)
+            items.sort((a, b) => b.priority - a.priority);
+            
+            items.forEach(item => {
+                const row = document.createElement('tr');
+                
+                // Set data attributes for filtering
+                row.setAttribute('data-item-id', item.itemId);
+                
+                if (item.isWaste) {
+                    row.setAttribute('data-status', 'waste');
+                    row.classList.add('table-danger');
+                } else if (item.priority >= 90) {
+                    row.setAttribute('data-status', 'critical');
+                    row.classList.add('table-warning');
+                } else if (item.expiryDate && isExpiringWithin30Days(item.expiryDate)) {
+                    row.setAttribute('data-status', 'expiring');
+                    row.classList.add('table-info');
+                } else {
+                    row.setAttribute('data-status', 'normal');
+                }
+                
+                // Calculate dimensions
+                const dimensions = `${item.width} × ${item.depth} × ${item.height} cm`;
+                
+                // Format expiry date
+                const expiryDate = item.expiryDate ? formatDate(item.expiryDate) : 'N/A';
+                
+                // Format priority badge
+                let priorityBadgeClass = 'bg-secondary';
+                if (item.priority >= 90) {
+                    priorityBadgeClass = 'bg-danger';
+                } else if (item.priority >= 60) {
+                    priorityBadgeClass = 'bg-warning';
+                } else if (item.priority >= 30) {
+                    priorityBadgeClass = 'bg-info';
+                }
+                
+                // Format status
+                let statusBadge = '';
+                if (item.isWaste) {
+                    statusBadge = '<span class="badge bg-danger">Waste</span>';
+                } else if (item.expiryDate && isExpired(item.expiryDate)) {
+                    statusBadge = '<span class="badge bg-danger">Expired</span>';
+                } else if (item.expiryDate && isExpiringWithin30Days(item.expiryDate)) {
+                    statusBadge = '<span class="badge bg-warning">Expiring Soon</span>';
+                } else if (item.remainingUses <= 3) {
+                    statusBadge = '<span class="badge bg-warning">Low Uses</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-success">OK</span>';
+                }
+                
+                row.innerHTML = `
+                    <td>${item.itemId}</td>
+                    <td>${item.name}</td>
+                    <td>${dimensions}</td>
+                    <td><span class="badge ${priorityBadgeClass}">${item.priority}</span></td>
+                    <td>${item.preferredZone || 'Any'}</td>
+                    <td>${expiryDate}</td>
+                    <td>${item.remainingUses}/${item.usageLimit}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1 view-item-btn" 
+                                data-item-id="${item.itemId}">
+                            <i data-feather="eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary retrieve-item-btn"
+                                data-item-id="${item.itemId}" data-item-name="${item.name}">
+                            <i data-feather="search"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Initialize Feather icons for dynamically added elements
+            feather.replace();
+            
+            // Add event listeners for buttons
+            document.querySelectorAll('.view-item-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    showItemDetails(itemId, items);
+                });
+            });
+            
+            document.querySelectorAll('.retrieve-item-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemName = this.getAttribute('data-item-name');
+                    
+                    // Set the search input and open the retrieve modal
+                    document.getElementById('itemNameSearch').value = itemName;
+                    const retrieveItemModal = new bootstrap.Modal(document.getElementById('retrieveItemModal'));
+                    retrieveItemModal.show();
+                });
+            });
+        }
+        
+        function showItemDetails(itemId, items) {
+            // Find the item
+            const item = items.find(i => i.itemId === itemId);
+            
+            if (!item) {
+                showAlert('danger', 'Item not found');
+                return;
+            }
+            
+            // Set item details
+            document.getElementById('detailsItemId').textContent = item.itemId;
+            document.getElementById('detailsItemName').textContent = item.name;
+            document.getElementById('detailsItemDimensions').textContent = `${item.width} × ${item.depth} × ${item.height} cm`;
+            document.getElementById('detailsItemMass').textContent = item.mass;
+            document.getElementById('detailsItemPriority').textContent = item.priority;
+            document.getElementById('detailsItemPreferredZone').textContent = item.preferredZone || 'Any';
+            document.getElementById('detailsItemExpiryDate').textContent = item.expiryDate ? formatDate(item.expiryDate) : 'N/A';
+            document.getElementById('detailsItemUsageLimit').textContent = item.usageLimit;
+            document.getElementById('detailsItemRemainingUses').textContent = item.remainingUses;
+            
+            // Set status
+            let statusHtml = '';
+            if (item.isWaste) {
+                statusHtml = '<span class="badge bg-danger">Waste</span>';
+            } else if (item.expiryDate && isExpired(item.expiryDate)) {
+                statusHtml = '<span class="badge bg-danger">Expired</span>';
+            } else if (item.expiryDate && isExpiringWithin30Days(item.expiryDate)) {
+                statusHtml = '<span class="badge bg-warning">Expiring Soon</span>';
+            } else if (item.remainingUses <= 3) {
+                statusHtml = '<span class="badge bg-warning">Low Uses</span>';
+            } else {
+                statusHtml = '<span class="badge bg-success">OK</span>';
+            }
+            document.getElementById('detailsItemStatus').innerHTML = statusHtml;
+            
+            // Placeholder for placement information
+            document.getElementById('placementInfo').innerHTML = `
+                <div class="alert alert-info">
+                    <i data-feather="info"></i> Detailed placement information not available in this view.
+                </div>
+            `;
+            
+            // Placeholder for retrieval instructions
+            document.getElementById('retrievalInfo').innerHTML = `
+                <div class="alert alert-info">
+                    <i data-feather="info"></i> Click the 'Retrieve' button to see detailed retrieval instructions.
+                </div>
+            `;
+            
+            // Initialize feather icons for dynamically added elements
+            feather.replace();
+            
+            // Show the modal
+            const itemDetailsModal = new bootstrap.Modal(document.getElementById('itemDetailsModal'));
+            itemDetailsModal.show();
+        }
+        
+        function filterItems(filter) {
+            const rows = document.getElementById('itemsTable').querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else {
+                    const status = row.getAttribute('data-status');
+                    if (status === filter) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Update item count
+            const visibleRows = document.querySelectorAll('#itemsTable tbody tr:not([style*="display: none"])');
+            document.getElementById('itemCount').textContent = visibleRows.length;
+        }
+        
+        function searchItems(searchTerm) {
+            const rows = document.getElementById('itemsTable').querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update item count
+            const visibleRows = document.querySelectorAll('#itemsTable tbody tr:not([style*="display: none"])');
+            document.getElementById('itemCount').textContent = visibleRows.length;
+        }
+        
+        function scanForWaste() {
+            fetch('/api/waste/identify')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show results
+                        const resultsDiv = document.getElementById('wasteIdentificationResults');
+                        resultsDiv.classList.remove('d-none');
+                        
+                        // Update count
+                        document.getElementById('wasteItemsCount').textContent = data.wasteItems.length;
+                        
+                        // Show waste items
+                        const wasteItemsList = document.getElementById('wasteItemsList');
+                        
+                        if (data.wasteItems.length === 0) {
+                            wasteItemsList.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i data-feather="check-circle"></i> No waste items found.
+                                </div>
+                            `;
+                        } else {
+                            wasteItemsList.innerHTML = `
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                `;
+                            
+                            data.wasteItems.forEach(item => {
+                                const reason = item.expiryDate && isExpired(item.expiryDate) 
+                                    ? 'Expired' 
+                                    : 'Usage limit reached';
+                                
+                                wasteItemsList.innerHTML += `
+                                    <tr>
+                                        <td>${item.itemId}</td>
+                                        <td>${item.name}</td>
+                                        <td>${reason}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            wasteItemsList.innerHTML += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary" id="planWasteDisposalBtn">
+                                        Plan Waste Disposal
+                                    </button>
+                                </div>
+                            `;
+                            
+                            // Add event listener to the plan button
+                            document.getElementById('planWasteDisposalBtn').addEventListener('click', function() {
+                                // Close this modal
+                                const identifyWasteModal = bootstrap.Modal.getInstance(document.getElementById('identifyWasteModal'));
+                                identifyWasteModal.hide();
+                                
+                                // Open waste disposal modal
+                                fetchContainers().then(() => {
+                                    const wasteDisposalModal = new bootstrap.Modal(document.getElementById('wasteDisposalModal'));
+                                    wasteDisposalModal.show();
+                                });
+                            });
+                        }
+                        
+                        // Initialize feather icons for dynamically added elements
+                        feather.replace();
+                        
+                        // Refresh the item list
+                        loadItems();
+                    } else {
+                        showAlert('danger', data.message || 'Failed to identify waste items');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while identifying waste items');
+                });
+        }
+        
+        // Helper function to format dates
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString();
+        }
+        
+        // Helper function to check if date is expired
+        function isExpired(dateStr) {
+            const date = new Date(dateStr);
+            return date <= new Date();
+        }
+        
+        // Helper function to check if date is expiring within 30 days
+        function isExpiringWithin30Days(dateStr) {
+            const date = new Date(dateStr);
+            const today = new Date();
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(today.getDate() + 30);
+            
+            return date > today && date <= thirtyDaysFromNow;
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertInstance = bootstrap.Alert.getInstance(alertDiv);
+                if (alertInstance) {
+                    alertInstance.close();
+                } else {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}
