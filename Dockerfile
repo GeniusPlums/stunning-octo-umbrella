@@ -28,5 +28,8 @@ COPY . /app/
 # Expose port 8000 for API access
 EXPOSE 8000
 
+# Set PORT environment variable to 8000 to ensure Docker uses this port
+ENV PORT=8000
+
 # Run the application
 CMD ["python3", "main.py"]
