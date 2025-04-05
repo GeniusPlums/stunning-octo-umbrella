@@ -115,9 +115,107 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="shipmentItems" class="form-label">Items (JSON format)</label>
-                        <textarea class="form-control" id="shipmentItems" rows="10" placeholder='[
+                    <ul class="nav nav-tabs mb-3" id="shipmentTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="form-tab" data-bs-toggle="tab" data-bs-target="#form-content" type="button" role="tab" aria-controls="form-content" aria-selected="true">Form</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-content" type="button" role="tab" aria-controls="json-content" aria-selected="false">JSON</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="shipmentTabsContent">
+                        <!-- Form Input -->
+                        <div class="tab-pane fade show active" id="form-content" role="tabpanel" aria-labelledby="form-tab">
+                            <form id="itemForm">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="itemId" class="form-label">Item ID</label>
+                                        <input type="text" class="form-control" id="itemId" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="itemName" class="form-label">Name</label>
+                                        <input type="text" class="form-control" id="itemName" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-3">
+                                        <label for="itemWidth" class="form-label">Width (cm)</label>
+                                        <input type="number" class="form-control" id="itemWidth" min="1" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="itemDepth" class="form-label">Depth (cm)</label>
+                                        <input type="number" class="form-control" id="itemDepth" min="1" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="itemHeight" class="form-label">Height (cm)</label>
+                                        <input type="number" class="form-control" id="itemHeight" min="1" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="itemMass" class="form-label">Mass (kg)</label>
+                                        <input type="number" class="form-control" id="itemMass" min="0.1" step="0.1" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label for="itemPriority" class="form-label">Priority (0-100)</label>
+                                        <input type="number" class="form-control" id="itemPriority" min="0" max="100" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="itemExpiry" class="form-label">Expiry Date</label>
+                                        <input type="date" class="form-control" id="itemExpiry">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="itemUsageLimit" class="form-label">Usage Limit</label>
+                                        <input type="number" class="form-control" id="itemUsageLimit" min="1" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="itemZone" class="form-label">Preferred Zone</label>
+                                    <select class="form-select" id="itemZone">
+                                        <option value="">No Preference</option>
+                                        <option value="Crew Quarters">Crew Quarters</option>
+                                        <option value="Airlock">Airlock</option>
+                                        <option value="Laboratory">Laboratory</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="button" class="btn btn-primary" id="addItemToShipmentBtn">Add to Shipment</button>
+                            </form>
+                            
+                            <hr>
+                            
+                            <div class="mt-4">
+                                <h5>Shipment Items</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Dimensions</th>
+                                                <th>Priority</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="shipmentItemsList">
+                                            <tr>
+                                                <td colspan="5" class="text-center">No items added yet</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- JSON Input -->
+                        <div class="tab-pane fade" id="json-content" role="tabpanel" aria-labelledby="json-tab">
+                            <div class="mb-3">
+                                <label for="shipmentItems" class="form-label">Items (JSON format)</label>
+                                <textarea class="form-control" id="shipmentItems" rows="15" placeholder='[
   {
     "itemId": "001",
     "name": "Food Packet",
@@ -131,6 +229,8 @@
     "preferredZone": "Crew Quarters"
   }
 ]'></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">

@@ -44,8 +44,20 @@ function setActiveNavLink() {
 function setupModalListeners() {
     // New Shipment modal
     document.getElementById('newShipmentBtn')?.addEventListener('click', function() {
+        // Reset the shipment items list before showing the modal
+        shipmentItems = [];
+        const shipmentItemsList = document.getElementById('shipmentItemsList');
+        if (shipmentItemsList) {
+            shipmentItemsList.innerHTML = '<tr><td colspan="5" class="text-center">No items added yet</td></tr>';
+        }
+        
         const newShipmentModal = new bootstrap.Modal(document.getElementById('newShipmentModal'));
         newShipmentModal.show();
+    });
+    
+    // Add item to shipment button
+    document.getElementById('addItemToShipmentBtn')?.addEventListener('click', function() {
+        addItemToShipment();
     });
     
     // Process Shipment button
@@ -130,73 +142,226 @@ function initializeOperationListeners() {
 }
 
 // Process a new shipment
-function processNewShipment() {
-    const itemsTextarea = document.getElementById('shipmentItems');
+// Global variable to store shipment items
+let shipmentItems = [];
+
+// Add an item to the shipment from the form
+function addItemToShipment() {
+    // Get form values
+    const itemId = document.getElementById('itemId').value.trim();
+    const name = document.getElementById('itemName').value.trim();
+    const width = parseFloat(document.getElementById('itemWidth').value);
+    const depth = parseFloat(document.getElementById('itemDepth').value);
+    const height = parseFloat(document.getElementById('itemHeight').value);
+    const mass = parseFloat(document.getElementById('itemMass').value);
+    const priority = parseInt(document.getElementById('itemPriority').value);
+    const expiry = document.getElementById('itemExpiry').value;
+    const usageLimit = parseInt(document.getElementById('itemUsageLimit').value);
+    const preferredZone = document.getElementById('itemZone').value;
     
-    try {
-        const items = JSON.parse(itemsTextarea.value);
+    // Basic validation
+    if (!itemId || !name || isNaN(width) || isNaN(depth) || isNaN(height) || 
+        isNaN(mass) || isNaN(priority) || isNaN(usageLimit)) {
+        showAlert('warning', 'Please fill in all required fields');
+        return;
+    }
+    
+    // Create item object
+    const item = {
+        itemId: itemId,
+        name: name,
+        width: width,
+        depth: depth,
+        height: height,
+        mass: mass,
+        priority: priority,
+        usageLimit: usageLimit,
+        preferredZone: preferredZone
+    };
+    
+    // Add expiry date if provided
+    if (expiry) {
+        item.expiryDate = expiry;
+    }
+    
+    // Check if item ID is already in the shipment
+    const existingIndex = shipmentItems.findIndex(i => i.itemId === itemId);
+    if (existingIndex >= 0) {
+        // Replace existing item
+        shipmentItems[existingIndex] = item;
+    } else {
+        // Add new item
+        shipmentItems.push(item);
+    }
+    
+    // Update the shipment items list
+    updateShipmentItemsList();
+    
+    // Clear form
+    document.getElementById('itemId').value = '';
+    document.getElementById('itemName').value = '';
+    document.getElementById('itemWidth').value = '';
+    document.getElementById('itemDepth').value = '';
+    document.getElementById('itemHeight').value = '';
+    document.getElementById('itemMass').value = '';
+    document.getElementById('itemPriority').value = '';
+    document.getElementById('itemExpiry').value = '';
+    document.getElementById('itemUsageLimit').value = '';
+    document.getElementById('itemZone').value = '';
+    
+    // Focus on item ID field for next entry
+    document.getElementById('itemId').focus();
+    
+    // Show success message
+    showAlert('success', `Item "${name}" added to shipment`);
+}
+
+// Update the shipment items list in the UI
+function updateShipmentItemsList() {
+    const shipmentItemsList = document.getElementById('shipmentItemsList');
+    if (!shipmentItemsList) return;
+    
+    if (shipmentItems.length === 0) {
+        shipmentItemsList.innerHTML = '<tr><td colspan="5" class="text-center">No items added yet</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    shipmentItems.forEach((item, index) => {
+        html += `
+            <tr>
+                <td>${item.itemId}</td>
+                <td>${item.name}</td>
+                <td>${item.width} × ${item.depth} × ${item.height} cm</td>
+                <td>${item.priority}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeItemFromShipment(${index})">
+                        <i data-feather="trash-2"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    shipmentItemsList.innerHTML = html;
+    
+    // Re-initialize feather icons
+    feather.replace();
+}
+
+// Remove an item from the shipment
+function removeItemFromShipment(index) {
+    if (index >= 0 && index < shipmentItems.length) {
+        const removedItem = shipmentItems[index];
+        shipmentItems.splice(index, 1);
+        updateShipmentItemsList();
+        showAlert('info', `Item "${removedItem.name}" removed from shipment`);
+    }
+}
+
+// Process a new shipment
+function processNewShipment() {
+    // Check which tab is active
+    const isJsonTab = document.querySelector('#json-tab').classList.contains('active');
+    
+    let items = [];
+    
+    if (isJsonTab) {
+        // Process JSON input
+        const itemsTextarea = document.getElementById('shipmentItems');
         
-        if (!Array.isArray(items)) {
-            throw new Error('Items must be an array');
+        try {
+            items = JSON.parse(itemsTextarea.value);
+            
+            if (!Array.isArray(items)) {
+                throw new Error('Items must be an array');
+            }
+        } catch (error) {
+            console.error('Error parsing JSON:', error);
+            showAlert('danger', 'Invalid JSON format: ' + error.message);
+            return;
+        }
+    } else {
+        // Process form input (use the global shipmentItems array)
+        if (shipmentItems.length === 0) {
+            showAlert('warning', 'Please add at least one item to the shipment');
+            return;
         }
         
-        // Get containers
-        fetch('/api/containers')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Prepare request payload
-                    const payload = {
-                        items: items,
-                        containers: data.containers
-                    };
-                    
-                    // Send request to API
-                    fetch('/api/placement', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            showAlert('success', `Successfully placed ${result.placements.length} items`);
-                            
-                            // Close modal
-                            const modal = bootstrap.Modal.getInstance(document.getElementById('newShipmentModal'));
-                            modal.hide();
-                            
-                            // Clear textarea
-                            itemsTextarea.value = '';
-                            
-                            // Refresh data if on the items page
-                            if (window.location.pathname === '/items') {
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 1000);
-                            }
-                        } else {
-                            showAlert('danger', result.message || 'Failed to place items');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showAlert('danger', 'An error occurred while processing the shipment');
-                    });
-                } else {
-                    showAlert('danger', 'Failed to fetch containers');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('danger', 'An error occurred while fetching containers');
-            });
-    } catch (error) {
-        console.error('Error parsing JSON:', error);
-        showAlert('danger', 'Invalid JSON format: ' + error.message);
+        items = shipmentItems;
     }
+    
+    // Validate items
+    if (items.length === 0) {
+        showAlert('warning', 'No items to process');
+        return;
+    }
+    
+    // Get containers
+    fetch('/api/containers')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Prepare request payload
+                const payload = {
+                    items: items,
+                    containers: data.containers
+                };
+                
+                // Send request to API
+                fetch('/api/placement', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        showAlert('success', `Successfully placed ${result.placements.length} items`);
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('newShipmentModal'));
+                        modal.hide();
+                        
+                        // Clear form data
+                        const itemsTextarea = document.getElementById('shipmentItems');
+                        if (itemsTextarea) {
+                            itemsTextarea.value = '';
+                        }
+                        
+                        // Clear global array
+                        shipmentItems = [];
+                        
+                        // Reset the shipment items list
+                        const shipmentItemsList = document.getElementById('shipmentItemsList');
+                        if (shipmentItemsList) {
+                            shipmentItemsList.innerHTML = '<tr><td colspan="5" class="text-center">No items added yet</td></tr>';
+                        }
+                        
+                        // Refresh data if on the items page
+                        if (window.location.pathname === '/items') {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        }
+                    } else {
+                        showAlert('danger', result.message || 'Failed to place items');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while processing the shipment');
+                });
+            } else {
+                showAlert('danger', 'Failed to fetch containers');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while fetching containers');
+        });
 }
 
 // Retrieve an item
