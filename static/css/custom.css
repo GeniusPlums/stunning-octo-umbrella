@@ -6,6 +6,12 @@ body {
     color: #e6edf3;
 }
 
+/* Main content area */
+main[role="main"] {
+    margin-left: 16.66%; /* This matches the col-md-2 width */
+    padding-top: 20px;
+}
+
 /* Sidebar styling */
 .sidebar {
     position: fixed;
@@ -245,5 +251,10 @@ body {
     
     .sidebar-sticky {
         height: auto;
+    }
+    
+    main[role="main"] {
+        margin-left: 0;
+        padding-top: 10px;
     }
 }
